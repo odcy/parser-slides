@@ -1,0 +1,1025 @@
+<link rel=stylesheet href=style.css /><div id=slideshow><div id='slide-0' class=slide><h1>parsing strings with functions</h1><h2>i like functions</h2></div>
+<div id='slide-1' class=slide><h2>javascript function syntax</h2><pre><code>const my_fun = x => x + 1
+const my_fun = x => {
+	return x + 1
+}
+const my_fun = function(x) {
+	return x + 1
+}
+function my_fun(x) {
+	return x + 1
+}</code></pre><p>all of these are same thing for our purposes!!</p></div>
+<div id='slide-2' class=slide><h1>what is: function??</h1><p>what does function mean to you??</p></div>
+<div id='slide-3' class=slide><h2>function as mapping</h2><p>function is a lot of thing to many different people.</p><p>but what if it is just mapping from one type to another?</p><pre><code>int -> string
+string -> int
+...</code></pre><p>very abstract!!</p></div>
+<div id='slide-4' class=slide><h2>i like abstraction</h2><p>what would these functions likely be then??</p><pre><code>const len = str => str.length
+const num = n => 'haha this is my number ' + n</code></pre></div>
+<div id='slide-5' class=slide><p><code>len</code> probably <code>string -> int</code></p><p><code>num</code> probably <code>int -> string</code> or actually more like <code>number -> string</code> because at high level javascript doesnt distinguish int from just number i think</p><p>(so <code>len</code> actually technically more like <code>string -> number</code>)</p><pre><code>// string -> number
+const len = str => str.length
+
+// number -> string
+const num = n => 'haha this is my number ' + n</code></pre></div>
+<div id='slide-6' class=slide><h2>i like functions</h2><pre><code>// number -> number
+const incremented = x => x + 1
+
+// number, number -> number
+const add = (x, y) => x + y
+
+// number, string -> string
+const repeat = (x, str) => str.repeat(x)</code></pre></div>
+<div id='slide-7' class=slide><h2>returning a function</h2><p>what if we want to return a function from a function?? like <code>string -> (string -> string)</code>, a function that takes string and returns a function <code>string -> string</code>??</p><pre><code>const greet = greeting => name => greeting + ', ' + name
+
+const greet = function(name) {
+	return function(greeting) {
+		return greeting + ', ' + name
+	}
+}</code></pre><p>oh, we could!! note: above two are the same</p></div>
+<div id='slide-8' class=slide><h3>greeting</h3><p>now we can make specific greeting functions.. how convenient!!</p><pre><code>const greet = greeting => name => greeting + ', ' + name
+
+const hello = greet('hello')
+const bye   = greet('bye')
+
+console.log(hello('world')) // hello, world
+console.log(bye('world'))   // bye, world</code></pre><p>note: <code>hello('world')</code> you could also just do <code>greet('hello')('world')</code> without having to make intermediate function. but assuming that you want to define an intermediate function for some reason!!</p></div>
+<div id='slide-9' class=slide><h2>another example: function composition</h2><p>do you know function composition?? if you have function <code>A -> B</code>, and function <code>B -> C</code>, you could smush the two together to make <code>A -> C</code>??</p><pre><code>A -> B, B -> C
+
+A -> B -> C
+
+A -> C</code></pre><p>lets make this.. lets make an 'after' function which will take two functions, and return new function that is same as applying the first one after the second.</p><pre><code>// (b -> c), (a -> b) -> a -> c
+const after = (f, g) => (...args) => f(g(...args))</code></pre><p>see.. f is <code>B -> C</code>, g is <code>A -> B</code>, <code>...args</code> is an <code>A</code>. so <code>g(...args)</code> is a <code>B</code>, and thus <code>f(g(...args))</code> is a <code>C</code>!! oh, so cool!</p></div>
+<div id='slide-10' class=slide><h3>wow epic bro</h3><pre><code>// (b -> c), (a -> b) -> a -> c
+const after = (f, g) => (...args) => f(g(...args))
+
+// string -> number
+const len = str => str.length
+
+// number -> string
+const num = n => 'haha this is my number ' + n
+
+// string -> string
+const how_long = after(num, len) // num after len
+
+console.log(how_long('hello')) // "haha this is my number 5"</code></pre><p>wow cool bro, we made a <code>string -> string</code> out of <code>number -> string</code> after <code>string -> number</code></p></div>
+<div id='slide-11' class=slide><h1>review</h1><p>functions</p><p>i like functions</p></div>
+<div id='slide-12' class=slide><h1>use functions</h1><p>but, why use these techniques like functions that take functions and return functions??</p><p>seem very convoluted?? what is good use??</p><p>lets use functions now!!!! :)</p></div>
+<div id='slide-13' class=slide><h1>introduction to problem:</h1><h2>parsing stuff</h2></div>
+<div id='slide-14' class=slide><h2>i want to turn string into 'parse tree'</h2><p>we have string <code>"1+2+(4-5)*6"</code></p><p>we would like to turn it into something we can 'easily evaluate' like a tree.</p><pre><code>  +
+ / \
+1   +
+   / \          we must turn that string
+  2   *         into this with programming!!
+     / \
+    -   6
+   / \
+  4   5</code></pre></div>
+<div id='slide-15' class=slide><h2>our tree representation</h2><p>for our purposes let us represent this tree with a javascript list like this</p><pre><code>  +
+ / \
+1   +
+   / \          ['+', 1, ['+', 2, ['*', ['-', 4, 5], 6]]]
+  2   *         each thing is [operator, left, right]
+     / \
+    -   6
+   / \
+  4   5</code></pre></div>
+<div id='slide-16' class=slide><h2>hand-evaluating tree for reminder</h2><pre><code>  +   ======>   +   ======>   +   ======>   +   ======> -3
+ / \           / \           / \           / \
+1   +         1   +         1   +         1  -4
+   / \           / \           / \
+  2   *         2   *         2  -6
+     / \           / \
+    -   6        -1   6
+   / \
+  4   5</code></pre><pre><code>['+', 1, ['+', 2, ['*', ['-', 4, 5], 6]]]
+['+', 1, ['+', 2, ['*', -1, 6]]]
+['+', 1, ['+', 2, -6]]
+['+', 1, -4]
+-3</code></pre></div>
+<div id='slide-17' class=slide><h2>tree recursion evaluation reminder</h2><pre><code>const evaluate = tree => {
+	if (typeof(tree) === 'number') return tree
+
+	const [operator, left, right] = tree
+
+	const x = evaluate(left)
+	const y = evaluate(right)
+
+	if (operator === '+') return x + y
+	if (operator === '-') return x - y
+	if (operator === '*') return x * y
+	if (operator === '/') return x / y
+}
+
+// prints "-3"
+console.log(evaluate(['+', 1, ['+', 2, ['*', ['-', 4, 5], 6]]]))</code></pre></div>
+<div id='slide-18' class=slide><h2>array destructuring</h2><pre><code>const array = ['hello', 'world']
+
+// the following are same
+const [a, b] = array
+
+const a = array[0]
+const b = array[1]</code></pre></div>
+<div id='slide-19' class=slide><h1>begin solving problem:</h1><h2>parse a small thing</h2></div>
+<div id='slide-20' class=slide><p>how turn <code>"1+2+(4-5)*6"</code> into <code>['+', 1, ['+', 2, ['*', ['-', 4, 5], 6]]]</code>???</p><p>great question!!</p><p>first, let us just parse a small thing then generalise from there!!</p></div>
+<div id='slide-21' class=slide><h2>parse '1'</h2><p>let us parse the single character '1' from a string. so we want a function that maps like this</p><pre><code>'1'   -> 1
+'11'  -> 1 // we are just parsing single character innit
+'abc' -> error?? no parse??
+''    -> also error?</code></pre><p>how do we handle when we could not parse a '1' from the string??</p></div>
+<div id='slide-22' class=slide><h2>choose peace, not error</h2><p>well let us actually just return something in addition that says whether we succeeded parsing or not!!</p><pre><code>'1'   -> { value: 1, failed: false }
+'11'  -> { value: 1, failed: false }
+'abc' -> { value: null, failed: true }
+''    -> { value: null, failed: true }</code></pre><p>for convenience no clutter, let us omit implied values like this:</p><pre><code>'1'   -> { value: 1 }
+'11'  -> { value: 1 }
+'abc' -> { failed: true }
+''    -> { failed: true }</code></pre><p>actually, conveniently, <code>null</code>, <code>false</code>, and <code>undefined</code> are all 'falsy' values, so if you try to get <code>failed</code> from <code>{ value: 1 }</code>, it will return <code>undefined</code> which still evaluates to <code>false</code>!!</p></div>
+<div id='slide-23' class=slide><h2>so what is the 'type' of a parser?</h2><p>so a parser is just a function that maps a <code>string</code> (the string to be parsed) to a parser result.. and that parser result is a javascript object with fields <code>value</code> (in this case an <code>int</code>/<code>number</code>) and <code>failed</code> (a <code>boolean</code>)</p><p>in shorter notation, we could represent it somehow like this</p><pre><code>Parser int: string -> { value: int, failed: boolean }</code></pre><p>and more generally,</p><pre><code>Parser a: string -> { value: a, failed: boolean }</code></pre></div>
+<div id='slide-24' class=slide><h1>writing the 1 parser</h1><p>now we just have to write a function that does this mapping!!</p><pre><code>// Parser int
+const parse_1 = str =>
+	str[0] === '1'
+		? { value: 1 }
+		: { failed: true }
+
+console.log(parse_1('1'))   // { value: 1 }
+console.log(parse_1('11'))  // { value: 1 }
+console.log(parse_1('abc')) // { failed: true }
+console.log(parse_1(''))    // { failed: true }</code></pre></div>
+<div id='slide-25' class=slide><h2>ternary operator</h2><p>often in programming languages with c-like syntax</p><pre><code>const condition = true
+
+// the two following are same basically
+const result = condition ? 'yes it was true' : 'no it was false'
+
+let result = null
+if (condition) result = 'yes it was true'
+else           result = 'no it was false'
+
+// i prefer type the first one like this
+const result = condition
+	? 'yes it was true'
+	: 'no it was false'</code></pre></div>
+<div id='slide-26' class=slide><h2>now we have a parser that can extract 1 from a string :)</h2><pre><code>// Parser int
+const parse_1 = str =>
+	str[0] === '1'
+		? { value: 1 }
+		: { failed: true }
+
+console.log(parse_1('1'))   // { value: 1 }</code></pre><p>but then we could generalise this by making a function that makes a parser for any character we want!!</p><pre><code>// char -> Parser char
+const parse_char = char => str =>
+	str[0] === char
+		? { value: char }
+		: { failed: true }
+
+// Parser char
+const parse_z = parse_char('z')
+
+console.log(parse_z('zzz'))   // { value: 'z' }</code></pre></div>
+<div id='slide-27' class=slide><h2>now we can make any character parser we want :)</h2><pre><code>// char -> Parser char
+const parse_char = char => str =>
+	str[0] === char
+		? { value: char }
+		: { failed: true }</code></pre><p>but actually, javascript makes it very easy to generalise this even more into a whole string parser!!! (char in javascript is just 1-length string anyways i think)</p><pre><code>// string -> Parser string
+const parse_str = str_toParse => str =>
+	str.startsWith(str_toParse)
+		? { value: str_toParse }
+		: { failed: true }
+
+// Parser string
+const parse_abc = parse_str('abc')
+
+console.log(parse_abc('abcdef'))   // { value: 'abc' }</code></pre></div>
+<div id='slide-28' class=slide><h1>next up: parsing this <i>or</i> that</h1><h2>combining a smaller parser into a more complex parser</h2></div>
+<div id='slide-29' class=slide><p>now we can parse any character or string that we can want. that is great!!</p><p>we can start parsing number characters.. like '0', or '1', or '2'.</p><pre><code>const parse_0 = parse_str('0')
+const parse_1 = parse_str('1')
+const parse_2 = parse_str('2')
+
+console.log(parse_0('123')) // { failed: true }
+console.log(parse_1('123')) // { value: '1'   } note: '1', not 1
+console.log(parse_2('123')) // { failed: true }</code></pre><p>but now the problem is we can only parse out specific digits.. we want to parse out <i>any</i> digit!! like this:</p><pre><code>console.log(parse_digit('123')) // { value: '1' }
+console.log(parse_digit('456')) // { value: '4' }</code></pre><p>wow, it would be nice..</p></div>
+<div id='slide-30' class=slide><h2>parsing this or that: i love functions</h2><p>well let us just make a function that combines two parsers into one with this functionality!!</p><p>the type would be like</p><pre><code>Parser a, Parser b -> Parser (a or b)</code></pre><p>yes i think <code>Parser (a or b)</code> is kinda weird.. we could iron this out but lets just move on for now.. anyways we will probably just be combining parsers of same type, so it will probably mostly be `Parser a, Parser a -> Parser a</p></div>
+<div id='slide-31' class=slide><h2>parsing this or that: writing the function <code>or</code></h2><p>now we can write such a function.. let us call it <code>or</code> because it like parses using the first <i>or</i> the second parser innit..</p><pre><code>// Parser a, Parser b -> Parser (a or b)
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+	return second(str)
+}
+
+const parse_this_or_that = or(parse_str('this'), parse_str('that'))
+console.log(parse_this_or_that('this is that')) // { value: 'this' }
+console.log(parse_this_or_that('that is this')) // { value: 'that' }</code></pre><p>very interesting..</p></div>
+<div id='slide-32' class=slide><h2>notes</h2><p>all of the following achieve same thing and are <code>Parser a, Parser b -> Parser (a or b)</code></p><pre><code><span class=small>// the original code
+// Parser a, Parser b -> str -> result with a or b
+// which is same as Parser a, Parser b -> Parser (a or b)
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+	return second(str)
+}
+
+// syntax better illustrates 'taking two parsers and returning new one'
+const or = (first, second) => {
+	return str => {
+		const result = first(str)
+		if (!result.failed) return result
+		return second(str)
+	}
+}
+
+// instead of just defaulting to second parser, go through both
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+
+	const result2 = second(str)
+	if (!result2.failed) return result2
+
+	return { failed: true }
+}</span></code></pre></div>
+<div id='slide-33' class=slide><h2>now we could parse any digit..</h2><p>now that we can parse different things with same parser, we could do like</p><pre><code>const parse_digit = or(parse_str('0'), or(parse_str('1'), or(parse_str('2'), or(parse_str('3'), or(...)))))</code></pre><p>but actually, that is same as this:</p><pre><code>const parse_digit = ['0', '1', '2', '3', ...].map(parse_str).reduce(or)</code></pre><p>which is same as</p><pre><code>const parse_digit = '0123456789'.split('').map(parse_str).reduce(or)</code></pre><pre><code>// Parser str
+// or `Parser char` if you consider 1-length string a char
+const parse_digit = '0123456789'.split('').map(parse_str).reduce(or)
+
+console.log(parse_digit('123')) // { value: '1' }
+console.log(parse_digit('456')) // { value: '4' }</code></pre></div>
+<div id='slide-34' class=slide><h3>aside: map and reduce</h3><p><code>map</code> applies a function to all elements, <code>[a].map(a -> b): [b]</code></p><p>example of map where <code>a = string</code>, <code>b = int</code>.</p><pre><code>// [string].map(string -> int): [int]
+['hello', 'world!!'].map(str => str.length) // [5, 7]</code></pre><p><code>reduce</code> 'folds' down an array from left to right, <code>[a].reduce((b, a) -> b, b): b</code></p><p>example of reduce where <code>a = string</code>, <code>b = int</code>. it produces sum of length of all strings in array. (better illustration on next slide)</p><pre><code>// [string].reduce((int, string) -> int, int): int
+['hello', 'world!!'].reduce((sum, str) => sum + str.length, 0) // 12</code></pre><p>a commonly used situation is when <code>a = b</code>, so it is <code>[a].reduce((a, a) -> a, a)</code>.</p><p>in this case you could do <code>ar.slice(1).reduce((a, a) -> a, ar[0])</code>, which in javascript you can do with just <code>ar.reduce((a, a) -> a)</code>. note that this doesnt work if <code>ar</code> is ever empty, since <code>ar[0]</code> is undefined</p><pre><code>// [int].reduce((int, int) -> int)
+[1, 2, 3].reduce((x, y) => x + y) // 6</code></pre></div>
+<div id='slide-35' class=slide><h3>illustration of reduce</h3><pre><code>// ['hello', 'world!!'].reduce((sum, str) => sum + str.length, 0)
+0  ['hello', 'world!!'] // 0 + 'hello'.length   = 0 + 5 = 5
+5  ['world!!']          // 5 + 'world!!'.length = 5 + 7 = 12
+12 []                   // done, returns 12</code></pre><pre><code>// [1, 2, 3].reduce((x, y) => x + y)
+1  [2, 3] // 1 + 2 = 3
+3  [3]    // 3 + 3 = 6
+6  []     // done, returns 6</code></pre><pre><code>// [].reduce((x, y) => x + y)
+??? [] // oops doesnt work!! explosion</code></pre><pre><code>// [1].reduce((x, y) => x + y)
+1  [] // done, returns 1</code></pre><pre><code>// [].reduce((x, y) => x + y, 0)
+0  [] // done, returns 0</code></pre></div>
+<div id='slide-36' class=slide><h1>what have so far</h1><pre><code>// Parser a, Parser b -> Parser (a or b)
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+	return second(str)
+}
+
+// string -> Parser string
+const parse_str = str_toParse => str => str.startsWith(str_toParse)
+	? { value: str_toParse }
+	: { failed: true }
+
+// Parser str
+const parse_digit = '0123456789'.split('').map(parse_str).reduce(or)
+
+// Parser str
+<span class=highlight-code>const parse_number = parse_digit</span></code></pre><p>cool, now we can parse any single digit!!</p><p>we might want to parse multiple digit number like <code>123+456</code>. for now, will not do that; will cover at end! for now, let us say that a number is just one digit like on the highlighted line <code>const parse_number = parse_digit</code>.</p></div>
+<div id='slide-37' class=slide><h1>next: parsing a first expression</h1><h2>like <code>1+1</code></h2></div>
+<div id='slide-38' class=slide><p>now we can parse single digit number. now we want to parse a bigger expression!! like <code>1+1</code> or <code>1+2</code>. cool!! let us first start with an expression like <code>num+num</code> and then refine it from there, moving onto <code>num+num+num</code>, then other operators like <code>-</code>, then <code>*</code> and <code>/</code> with order of operations.</p><p>to start out, let us make a parser that produces following mapping</p><pre><code>'1+1' => { value: ['+', 1, 1] }
+'1+2' => { value: ['+', 1, 2] }
+'1+'  => { failed: true }</code></pre></div>
+<div id='slide-39' class=slide><h2>parsing <code>1+1</code></h2><p>how would we parse <code>num+num</code>?? well we can parse a number because we have <code>parse_number</code> (which for now is just <code>parse_digit</code>). and we can make a plus-sign parser with <code>parse_str('+')</code>. so all we need is to consecutively parse out what we want from the string!!</p><pre><code>const parse_plus_expr = str => {
+	parse out first number..                fail if this fails
+	parse out plus sign from the rest..     fail if this fails
+	parse out second number from the rest.. fail if this fails
+	return ['+', first number, second number]
+}</code></pre><p>the only problem is.. how do we get the rest of string after parsing out something??</p><p>since for now, everything is only one character, we could just hard code the values in :)) but that will not scale at all!! so actually we need each parser to return the rest of the string when it successfully parses something out.</p></div>
+<div id='slide-40' class=slide><h2>returning rest</h2><p>luckily returning rest of string is actually not that big of a change in our existing code!! it only changes one line</p><pre><code>// Parser a, Parser b -> Parser (a or b)
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+	return second(str)
+}
+
+// string -> Parser string
+const parse_str = str_toParse => str => str.startsWith(str_toParse)
+<span class=highlight-code>	? { value: str_toParse, rest: str.slice(str_toParse.length) }</span>
+	: { failed: true }
+
+// Parser str
+const parse_digit = '0123456789'.split('').map(parse_str).reduce(or)
+
+// Parser str
+const parse_number = parse_digit
+
+console.log(parse_number('1+2'))         // { value: '1', rest: '+2' }
+console.log(parse_str('abc')('abcdefg')) // { value: 'abc', rest: 'defg' }</code></pre></div>
+<div id='slide-41' class=slide><h2>writing plus-expression parser</h2><p>let us translate pseudocode now!!</p><pre><code><span class=small>const parse_plus_expr = str => {
+	parse out first number..                fail if this fails
+	parse out plus sign from the rest..     fail if this fails
+	parse out second number from the rest.. fail if this fails
+	return ['+', first number, second number]
+}</span></code></pre><pre><code>// Parser tree
+const parse_plus_expr = str => {
+	const first_num = parse_number(str)
+	if (first_num.failed) return { failed: true }
+
+	const plus_sign = parse_str('+')(first_num.rest)
+	if (plus_sign.failed) return { failed: true }
+
+	const second_num = parse_number(plus_sign.rest)
+	if (second_num.failed) return { failed: true }
+
+	return { value: ['+', parseInt(first_num.value), parseInt(second_num.value)]
+	       , rest: second_num.rest
+	       }
+}
+
+console.log(parse_plus_expr('1+1'))    // { value: ['+', 1, 1], rest: '' }
+console.log(parse_plus_expr('1+2abc')) // { value: ['+', 1, 2], rest: 'abc' }
+console.log(parse_plus_expr('1+'))     // { failed: true }</code></pre><p>wow epic bro</p></div>
+<div id='slide-42' class=slide><h2>epic..but is it really??</h2><pre><code><span class=small>const parse_plus_expr = str => {
+	const first_num = parse_number(str)
+	if (first_num.failed) return { failed: true }
+
+	const plus_sign = parse_str('+')(first_num.rest)
+	if (plus_sign.failed) return { failed: true }
+
+	const second_num = parse_number(plus_sign.rest)
+	if (second_num.failed) return { failed: true }
+
+	return { value: ['+', parseInt(first_num.value), parseInt(second_num.value)]
+	       , rest: second_num.rest
+	       }
+}</span></code></pre><p>this code is very repetitive bro.. not epic!! it is very tedious and very prone to error if we continue to extend it like this, i think.</p><p>manually typing out all the early returns, piping the previous <code>.rest</code> into the next, etc. not epic!!</p><p>how could we improve this??</p></div>
+<div id='slide-43' class=slide><h2>functions?? i love functions bro</h2><p>one hundred years of computer science theory has evolved to allow you to write your program without repetitive boilerplate code</p><p>yes that's right!! you could use functions to solve this problem.</p><p>here is the concept: make a function that takes a parser, a function that makes a new parser based on the output of the old one, and returns a parser that pipes everything together, running its input through the old parser (and failing if old fails), making the new parser, and returning output of the new parser!!</p><p>wow epic!!! actually, this is shorter in code than in words i think. lets call the cool function <code>bind</code> because it like binds the old parser to the new one with some cool glue</p><pre><code>// Parser a, (a -> Parser b) -> Parser b
+const bind = (old, make_new) => str => {
+	const out = old(str)
+	return out.failed
+		? { failed: true }
+		: make_new(out.value)(out.rest)
+}</code></pre></div>
+<div id='slide-44' class=slide><h2>let us bind</h2><pre><code><span class=small>const parse_plus_expr = str => {
+	const first_num = parse_number(str)
+	if (first_num.failed) return { failed: true }
+
+	const plus_sign = parse_str('+')(first_num.rest)
+	if (plus_sign.failed) return { failed: true }
+
+	const second_num = parse_number(plus_sign.rest)
+	if (second_num.failed) return { failed: true }
+
+	return { value: ['+', parseInt(first_num.value), parseInt(second_num.value)]
+	       , rest: second_num.rest
+	       }
+}</span></code></pre><pre><code>const parse_plus_expr = bind
+	( parse_number
+	, first_num => bind
+		( parse_str('+')
+		, plus_sign => bind
+			( parse_number
+			, second_num => str => ({ rest: str, value: ['+', parseInt(first_num), parseInt(second_num)] })
+			)
+		)
+	)</code></pre><p>wow bro how epic! we do not have to manually handle failure, or rest, or unpacking values. wow epic!</p></div>
+<div id='slide-45' class=slide><h2>retoorn</h2><pre><code><span class=small>const parse_plus_expr = bind
+	( parse_number
+	, first_num => bind
+		( parse_str('+')
+		, plus_sign => bind
+			( parse_number
+<span class=highlight-code>			, second_num => str => ({ rest: str, value: ['+', parseInt(first_num), parseInt(second_num)] })</span>
+			)
+		)
+	)</span></code></pre><p>ok 1 thing to note is this line!! we need to return our tree, but <code>bind</code> takes an <code>a -> Parser b</code> as its second argument. so we just give it a <code>Parser tree</code> that unconditionally returns the tree we want.</p><p>we can clean this up a bit by separating that out to a function :)</p><pre><code><span class=small>// a => Parser a
+// returns a parser that unconditionally yields your `a`
+const retoorn = val => str => ({ rest: str, value: val })
+
+// Parser tree
+const parse_plus_expr = bind
+	( parse_number
+	, first_num => bind
+		( parse_str('+')
+		, plus_sign => bind
+			( parse_number
+			, second_num => retoorn(['+', parseInt(first_num), parseInt(second_num)])
+			)
+		)
+	)</span></code></pre><p>haha epic:)</p></div>
+<div id='slide-46' class=slide><h1>what do we have so far</h1><pre><code><span class=small>// Parser a, (a -> Parser b) -> Parser b
+const bind = (old, make_new) => str => {
+	const out = old(str)
+	return out.failed
+		? { failed: true }
+		: make_new(out.value)(out.rest)
+}
+
+// a => Parser a
+const retoorn = val => str => ({ rest: str, value: val })
+
+// Parser a, Parser b -> Parser (a or b)
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+	return second(str)
+}
+
+// string -> Parser string
+const parse_str = str_toParse => str => str.startsWith(str_toParse)
+	? { value: str_toParse, rest: str.slice(str_toParse.length) }
+	: { failed: true }
+
+// Parser str
+const parse_digit = '0123456789'.split('').map(parse_str).reduce(or)
+
+// Parser str
+const parse_number = parse_digit
+
+// Parser tree
+const parse_plus_expr = bind
+	( parse_number
+	, first_num => bind
+		( parse_str('+')
+		, plus_sign => bind
+			( parse_number
+			, second_num => retoorn(['+', parseInt(first_num), parseInt(second_num)])
+			)
+		)
+	)</span></code></pre><p>opps!!! our program has grown.. it cannot even fit comfortably on a single page..</p><p>there is one last tweak i would like to make now before we move on.. we are manually <code>parseInt</code>ing the numbers we parse out.. because <code>parse_num</code> is a <code>Parser string</code>, not <code>Parser int</code>. let us quickly patch it up with our new friend <code>bind</code> and <code>retoorn</code> :))</p></div>
+<div id='slide-47' class=slide><pre><code><span class=small>// Parser a, (a -> Parser b) -> Parser b
+const bind = (old, make_new) => str => {
+	const out = old(str)
+	return out.failed
+		? { failed: true }
+		: make_new(out.value)(out.rest)
+}
+
+// a => Parser a
+const retoorn = val => str => ({ rest: str, value: val })
+
+// Parser a, Parser b -> Parser (a or b)
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+	return second(str)
+}
+
+// string -> Parser string
+const parse_str = str_toParse => str => str.startsWith(str_toParse)
+	? { value: str_toParse, rest: str.slice(str_toParse.length) }
+	: { failed: true }
+
+// Parser str
+const parse_digit = '0123456789'.split('').map(parse_str).reduce(or)
+
+<span class=highlight-code>// Parser int
+const parse_number = bind(parse_digit, digit => retoorn(parseInt(digit)))</span>
+
+// Parser tree
+const parse_plus_expr = bind
+	( parse_number
+	, first_num => bind
+		( parse_str('+')
+		, plus_sign => bind
+			( parse_number
+<span class=highlight-code>			, second_num => retoorn(['+', first_num, second_num])</span>
+			)
+		)
+	)</span></code></pre><p>great thats perfect bro :))</p></div>
+<div id='slide-48' class=slide><h1>writing literally everything else</h1><h2>wow cool, bro</h2></div>
+<div id='slide-49' class=slide><p>wow cool bro, actually we are almost all done, only like 3 things left:</p><p><ol></p><p><li><code>1+2+3+4+...</code></li></p><p><li>subtraction</li></p><p><li>multiplication/division, and order of operations</li></p><p><li>parens</li></p><p><li>multiple digit numbers?</li></p><p></ol></p></div>
+<div id='slide-50' class=slide><h2>1. <code>1+2+3+...</code></h2><p>oh, actually we can change one line to correctly parse this :)</p><pre><code>const parse_plus_expr = bind
+	( parse_number
+	, first_num => bind
+		( parse_str('+')
+		, plus_sign => bind
+<span class=highlight-code>			( or(parse_plus_expr, parse_number)</span>
+			, second_num => retoorn(['+', first_num, second_num])
+			)
+		)
+	)
+
+// omg!!!
+console.log(parse_plus_expr('1+2+3+4')) // { value: ['+', 1, ['+', 2, ['+', 3, 4]]], rest: '' }</code></pre><p>oh,wow thats so epic bro!:) instead of right side is just another number, it could be another plus expression!!!!!! wow.. now the names <code>first_num</code> and <code>second_num</code> could better be expressed <code>left</code> and <code>right</code> i think</p><pre><code><span class=small>const parse_plus_expr = bind
+	( parse_number
+	, left => bind
+		( parse_str('+')
+		, plus_sign => bind
+			( or(parse_plus_expr, parse_number)
+			, right => retoorn(['+', left, right])
+			)
+		)
+	)</span></code></pre></div>
+<div id='slide-51' class=slide><h2>2. <code>1-2+3</code></h2><p>since subtraction is same order of operations as addition, we can just slap minus in with our plus expression!!</p><pre><code>const parse_plus_expr = bind
+	( parse_number
+	, left => bind
+<span class=highlight-code>		( or(parse_str('+'), parse_str('-'))
+		, sign => bind</span>
+			( or(parse_plus_expr, parse_number)
+<span class=highlight-code>			, right => retoorn([sign, left, right])</span>
+			)
+		)
+	)
+
+console.log(parse_plus_expr('1-2-3+4')) // { value: ['-', 1, ['-', 2, ['+', 3, 4]]], rest: '' }</code></pre><p>omg!! could you believe that?</p><p>there are other ways u could approach this feature addition.. this is just one way that minimally modifies current code..</p></div>
+<div id='slide-52' class=slide><h2>3. multiplicación y división</h2><p>¿cómo hacer la multiplicación y división con orden de evaluación??? hmm.. es similar a la adición y sustracción, ¿no¿¿? pero a la derecha de la expresión sólo puede ser una expresión de multiplicación o división, o un número.</p><p>vamos a hacer un parser de expresión de times!!</p><pre><code>// Parser tree
+const parse_times_expr = bind
+	( parse_number
+	, left => bind
+		( or(parse_str('*'), parse_str('/'))
+		, sign => bind
+			( or(parse_times_expr, parse_number)
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)</code></pre><p>¡¡tan similares son expresión de plus y expresión de times, ¿¿no?!!!</p></div>
+<div id='slide-53' class=slide><h2>3.2 plus y times</h2><p>¡¡pero ya es necesario modificar parser de plus!!</p><pre><code>const parse_times_expr = bind
+	( parse_number
+	, left => bind
+		( or(parse_str('*'), parse_str('/'))
+		, sign => bind
+			( or(parse_times_expr, parse_number)
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+const parse_plus_expr = bind
+<span class=highlight-code>	( or(parse_times_expr, parse_number)</span>
+	, left => bind
+		( or(parse_str('+'), parse_str('-'))
+		, sign => bind
+<span class=highlight-code>			( [parse_plus_expr, parse_times_expr, parse_number].reduce(or)</span>
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)</code></pre><p>ala izquierda <i>o</i> ala derecha del plus puede ser un expresión de times!!</p><pre><code><span class=small>console.log(parse_plus_expr('1+2*3+4')) // { value: ['+', 1, ['+', ['*', 2, 3], 4]], rest: '' }</span></code></pre><p>¡¡omg funciona!! ¡¡ orden de evaluación!!! ¡¡¡¡¡¡¡que épico!!!</p></div>
+<div id='slide-54' class=slide><h2>parenteheseis</h2><p>what if we want to use partnehtis? we have to make a paren expression!!</p><p>what is 'paren expression'?? it's inside some parenethesis, just any expression!!.. plus epxression, times epxression, number.. all possible!!also, paren expression inside paren expression possible.</p><pre><code>const parse_paren_expr = bind
+	( parse_str('(')
+	, lparen => bind
+		( [parse_paren_expr, parse_plus_expr, parse_times_expr, parse_number].reduce(or)
+		, expr => bind
+			( parse_str(')')
+			, rparen => retoorn(expr)
+			)
+		)
+	)</code></pre><p>nowe we must change times and plus expression.</p><pre><code>const parse_times_expr = bind
+<span class=highlight-code>	( or(parse_number, parse_paren_expr)</span>
+	, left => bind
+		( or(parse_str('*'), parse_str('/'))
+		, sign => bind
+<span class=highlight-code>			( [parse_times_expr, parse_number, parse_paren_expr].reduce(or)</span>
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+const parse_plus_expr = bind
+<span class=highlight-code>	( [parse_times_expr, parse_number, parse_paren_expr].reduce(or)</span>
+	, left => bind
+		( or(parse_str('+'), parse_str('-'))
+		, sign => bind
+<span class=highlight-code>			( [parse_plus_expr, parse_times_expr, parse_number, parse_paren_expr].reduce(or)</span>
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)</code></pre><pre><code>console.log(parse_plus_expr('(1+2)+3')) // { value: ['+', ['+', 1, 2], 3] }</code></pre><p>oh??? it work?????cool</p></div>
+<div id='slide-55' class=slide><h2>why is code so bad though??</h2><pre><code><span class=small>// Parser tree
+const parse_paren_expr = bind
+	( parse_str('(')
+	, lparen => bind
+		( [parse_paren_expr, parse_plus_expr, parse_times_expr, parse_number].reduce(or)
+		, expr => bind
+			( parse_str(')')
+			, rparen => retoorn(expr)
+			)
+		)
+	)
+
+// Parser tree
+const parse_times_expr = bind
+	( or(parse_number, parse_paren_expr)
+	, left => bind
+		( or(parse_str('*'), parse_str('/'))
+		, sign => bind
+			( [parse_times_expr, parse_number, parse_paren_expr].reduce(or)
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+
+
+// Parser tree
+const parse_plus_expr = bind
+	( [parse_times_expr, parse_number, parse_paren_expr].reduce(or)
+	, left => bind
+		( or(parse_str('+'), parse_str('-'))
+		, sign => bind
+			( [parse_plus_expr, parse_times_expr, parse_number, parse_paren_expr].reduce(or)
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)</span></code></pre></div>
+<div id='slide-56' class=slide><h2>make better</h2><pre><code><span class=small>// Parser tree
+const parse_paren_expr = bind
+	( parse_str('(')
+	, lparen => bind
+<span class=highlight-code>		( p_plus</span>
+		, expr => bind
+			( parse_str(')')
+			, rparen => retoorn(expr)
+			)
+		)
+	)
+
+<span class=highlight-code>const p_base = or(parse_number, parse_paren_expr)</span>
+
+// Parser tree
+const parse_times_expr = bind
+<span class=highlight-code>	( p_base</span>
+	, left => bind
+		( or(parse_str('*'), parse_str('/'))
+		, sign => bind
+<span class=highlight-code>			( p_times</span>
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+
+<span class=highlight-code>const p_times = or(parse_times_expr, p_base)</span>
+
+// Parser tree
+const parse_plus_expr = bind
+<span class=highlight-code>	( p_times</span>
+	, left => bind
+		( or(parse_str('+'), parse_str('-'))
+		, sign => bind
+<span class=highlight-code>			( p_plus</span>
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+
+<span class=highlight-code>const p_plus = or(parse_plus_expr, p_times)</span></code></pre><p>uhuononyonoynoynonyonyoynonyonyonyonyonyonyonyonyonyonyoynoynoynoyn</p></div>
+<div id='slide-57' class=slide><h1>but, there actually is big problem!!!!!!!!!!i just found this out OMG!!</h1><p>did you know that <code>1 - 2 - 3 =/= 1 - (2 - 3)</code>??? its true!!</p><pre><code>1 - 2 - 3 = 1 - (2 - 3)
+-1 - 3 = 1 - (-1)
+-4 = 2
+omg!!!!</code></pre><p>subtraction is 'left associative'.. so is division!! omg what a tragedy!! because, this parser now only groups right associative.</p><pre><code>1 - 2 - 3 - 4
+right associative: 1 + (2 - (3 - 4))
+left associative:  ((1 - 2) - 3) - 4</code></pre><p>thats so sad!! how could we fix!!</p></div>
+<div id='slide-58' class=slide><h2>oh we cant fix!!!!</h2><p>oh actually, i think we couldnt fix because our parser is 'right recursive', meaning it starts at beginning of string and works right.. so now we were doing like this</p><pre><code>plus expression is: <times expression> + <plus expression></code></pre><p>to make it left associative we would need to do</p><pre><code>plus expression is: <plus expression> + <times expression></code></pre><p>which would become infinite recursion!! because to parse a plus expression, it would try to parse a plus expression. and to parse that plus expression, it would try to parse a plus expression. and to parse that plus expression, it would try to parse a plus expression. and to parse that plus expression, it would try to parse a plus expression. and to parse that plus expression, it would try to parse a plus expression. and to parse that plus expression, it would try to parse a plus expression. aghahah infinite recursión</p></div>
+<div id='slide-59' class=slide><h2>oh actually maybe we could fix</h2><p>actually, maybe we could parse <code>1-2-3</code> as <code>1 + (-2) + (-3)</code>!! but, it would not fit the current parser unless it were like some preprocessor that specifically converts only these expressions. because otherwise, what does <code>1*-2</code> equal?? <code>1 * + (-2)</code>?? etc. ohno!!</p><p>actually maybe there is other way also. like parsing long list of them without recursion. who knows? i do not actually know much about parsing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p><p>so, actually do not fix, and just remove subtraction and division from parser.</p></div>
+<div id='slide-60' class=slide><pre><code>// Parser tree
+const parse_times_expr = bind
+	( p_base
+	, left => bind
+<span class=highlight-code>		( parse_str('*')</span>
+		, sign => bind
+			( p_times
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+
+const p_times = or(parse_times_expr, p_base)
+
+// Parser tree
+const parse_plus_expr = bind
+	( p_times
+	, left => bind
+<span class=highlight-code>		( parse_str('+')</span>
+		, sign => bind
+			( p_plus
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+
+const p_plus = or(parse_plus_expr, p_times)</code></pre></div>
+<div id='slide-61' class=slide><h2>parse multiple digit number</h2><pre><code>// Parser a -> Parser [a]
+const many = p => str => {
+	let got = []
+	let remain = str
+
+	while (true) {
+		const { value, rest, failed } = p(remain)
+		if (failed) break
+		got.push(value)
+		remain = rest
+	}
+
+	return got.length
+		? { value: got, rest: remain }
+		: { failed: true }
+}
+
+// Parser int
+<span class=highlight-code>const parse_number = bind</span>
+<span class=highlight-code>	( many(parse_digit)</span>
+<span class=highlight-code>	, digits => retoorn(parseInt(digits.join('')))</span>
+<span class=highlight-code>	)</span></code></pre><p><ol></p><p><li>make function that turns parser that parses single thing into parser that parses many thing</li></p><p><li>edit <code>parse_number</code></li></p><p><ol></p></div>
+<div id='slide-62' class=slide><h2>the end(1)</h2><p>now, you have parser for simple arithmetic that doesnt work on subtraction or division!!</p><pre><code><span class=small>// Parser a, (a -> Parser b) -> Parser b
+const bind = (old, make_new) => str => {
+	const out = old(str)
+	return out.failed
+		? { failed: true }
+		: make_new(out.value)(out.rest)
+}
+
+// a => Parser a
+const retoorn = val => str => ({ rest: str, value: val })
+
+// Parser a, Parser b -> Parser (a or b)
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+	return second(str)
+}
+
+// Parser a -> Parser [a]
+const many = p => str => {
+	let got = []
+	let remain = str
+
+	while (true) {
+		const { value, rest, failed } = p(remain)
+		if (failed) break
+		got.push(value)
+		remain = rest
+	}
+
+	return got.length
+		? { value: got, rest: remain }
+		: { failed: true }
+}
+
+// string -> Parser string
+const parse_str = str_toParse => str => str.startsWith(str_toParse)
+	? { value: str_toParse, rest: str.slice(str_toParse.length) }
+	: { failed: true }
+
+// Parser str
+const parse_digit = '0123456789'.split('').map(parse_str).reduce(or)
+
+// Parser int
+const parse_number = bind
+	( many(parse_digit)
+	, digits => retoorn(parseInt(digits.join('')))
+	)
+
+// Parser tree
+const parse_paren_expr = bind
+	( parse_str('(')
+	, lparen => bind
+		( p_plus
+		, expr => bind
+			( parse_str(')')
+			, rparen => retoorn(expr)
+			)
+		)
+	)
+
+const p_base = or(parse_number, parse_paren_expr)
+
+// Parser tree
+const parse_times_expr = bind
+	( p_base
+	, left => bind
+		( parse_str('*')
+		, sign => bind
+			( p_times
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+
+const p_times = or(parse_times_expr, p_base)
+
+// Parser tree
+const parse_plus_expr = bind
+	( p_times
+	, left => bind
+		( parse_str('+')
+		, sign => bind
+			( p_plus
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+
+const p_plus = or(parse_plus_expr, p_times)</span></code></pre><pre><code>p_plus('112*3+(24*2+3)+4') => ["+",["*",112,3],["+",["+",["*",24,2],3],4]]</code></pre></div>
+<div id='slide-63' class=slide><h2>what ooo??????? i wrote 90 lines of code and i cant even subtraction or division, or put spaces in my string</h2><p>that is true, but at least you wrote 40 lines of highly reusable code and invented monad or something</p><pre><code><span class=small>// Parser a, (a -> Parser b) -> Parser b
+const bind = (old, make_new) => str => {
+	const out = old(str)
+	return out.failed
+		? { failed: true }
+		: make_new(out.value)(out.rest)
+}
+
+// a => Parser a
+const retoorn = val => str => ({ rest: str, value: val })
+
+// Parser a, Parser b -> Parser (a or b)
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+	return second(str)
+}
+
+// Parser a -> Parser [a]
+const many = p => str => {
+	let got = []
+	let remain = str
+
+	while (true) {
+		const { value, rest, failed } = p(remain)
+		if (failed) break
+		got.push(value)
+		remain = rest
+	}
+
+	return got.length
+		? { value: got, rest: remain }
+		: { failed: true }
+}
+
+// string -> Parser string
+const parse_str = str_toParse => str => str.startsWith(str_toParse)
+	? { value: str_toParse, rest: str.slice(str_toParse.length) }
+	: { failed: true }
+</span></code></pre></div>
+<div id='slide-64' class=slide><p>you could parse arbitrary grammar so easily now with your 40 lines tools</p><p>lets parse simple XML</p><pre><code>const parse_alphabet   = 'abcdefghijklmnopqrstuvwxyz'.split('').map(parse_str).reduce(or)
+const parse_whitespace = ' \n\t'.split('').map(parse_str).reduce(or)
+
+// Parser str => Parser str
+const joined = parser => bind
+	( many(parser)
+	, ar => retoorn(ar.join(''))
+	)
+
+const parse_text = bind
+	( joined(or(parse_alphabet, parse_whitespace))
+	, value => retoorn({ type: 'text', value })
+	)
+
+const parse_node = bind
+	( parse_str('<')
+	, _ => bind
+		( joined(parse_alphabet)
+		, name => bind
+			( parse_str('>')
+			, _ => bind
+				( or(many(parse_node), parse_text)
+				, value => bind
+					( parse_str(`</${name}>`)
+					, _ => retoorn({ type: 'node', value, name })
+					)
+				)
+			)
+		)
+	)</code></pre></div>
+<div id='slide-65' class=slide><p>wow,thats so epic bro</p><pre><code>&lt;hi&gt;&lt;hi&gt;hello how are you bro&lt;/hi&gt;&lt;hi&gt;&lt;hello&gt;abc&lt;/hello&gt;&lt;/hi&gt;&lt;/hi&gt;</code></pre><pre><code>{
+	"rest": "",
+	"value": {
+		"type": "node",
+		"value": [
+			{
+				"type": "node",
+				"value": {
+					"type": "text",
+					"value": "hello how are you bro"
+				},
+				"name": "hi"
+			},
+			{
+				"type": "node",
+				"value": [
+					{
+						"type": "node",
+						"value": {
+							"type": "text",
+							"value": "abc"
+						},
+						"name": "hello"
+					}
+				],
+				"name": "hi"
+			}
+		],
+		"name": "hi"
+	}
+}</code></pre><p>you could parse a simple xml with so little extra typing effort</p></div>
+<div id='slide-66' class=slide><h1>conclution</h1><p>we saw function. and then, made a parser out of a function. and then, made functions that transformed parsers. so eventually, we made small parsers, and then combined them into big parser. cool! this is called 'parser combinator'.</p><h2>compare to other parsing methods</h2><p>tbh idrk how other parsing methods really work.. i think they use a lot of loops and stacks and queues or something i could not do that.. i actually only really know functions!!i lokve functions control flow? who is control flow i only kknow function</p><h3>dijkstras bunting muffin algorithm</h3><p>there is an algorithm specifically for parsing two argument infix expressions like <code>1 - 2 - 3</code>, but the pseudocode was like 30 lines (without tokenisation = splitting up string as preprocessing step) of if statements. i could not would not mentally process that bro!!</p><h2>sources of error</h2><p>error</p><h2>future work</h2><p>you could make a cooler parser</p></div>
+<div id='slide-67' class=slide><h1>any question?</h1><p>i probably could not answer them haha hjust kidding maybe i could</p></div>
+<div id='slide-68' class=slide><h1>slides with important code</h1><p><ul></p><p><li><a href=#slide-17>tree evaluation</a></li></p><p><li><a href=#slide-62>full code for simple arithmetic, no subtraction or division parser</a></li></p><p><li><a href=#slide-64>simple xml parser using reusable code from above</a></li></p><p></ul></p></div>
+<div id='slide-69' class=slide><p></p></div>
+<div id='slide-70' class=slide><p></p></div>
+<div id='slide-71' class=slide><p></p></div>
+<div id='slide-72' class=slide><p></p></div>
+<div id='slide-73' class=slide><pre><code>javascript
+
+// Parser a, (a -> Parser b) -> Parser b
+const bind = (old, make_new) => str => {
+	const out = old(str)
+	return out.failed
+		? { failed: true }
+		: make_new(out.value)(out.rest)
+}
+
+// a => Parser a
+const retoorn = val => str => ({ rest: str, value: val })
+
+// Parser a, Parser b -> Parser (a or b)
+const or = (first, second) => str => {
+	const result = first(str)
+	if (!result.failed) return result
+	return second(str)
+}
+
+// Parser a -> Parser [a]
+const many = p => str => {
+	let got = []
+	let remain = str
+
+	while (true) {
+		const { value, rest, failed } = p(remain)
+		if (failed) break
+		got.push(value)
+		remain = rest
+	}
+
+	return got.length
+		? { value: got, rest: remain }
+		: { failed: true }
+}
+
+// string -> Parser string
+const parse_str = str_toParse => str => str.startsWith(str_toParse)
+	? { value: str_toParse, rest: str.slice(str_toParse.length) }
+	: { failed: true }
+
+// Parser str
+const parse_digit = '0123456789'.split('').map(parse_str).reduce(or)
+
+// Parser int
+const parse_number = bind
+	( many(parse_digit)
+	, digits => retoorn(parseInt(digits.join('')))
+	)
+
+// Parser tree
+const parse_paren_expr = bind
+	( parse_str('(')
+	, lparen => bind
+		( p_plus
+		, expr => bind
+			( parse_str(')')
+			, rparen => retoorn(expr)
+			)
+		)
+	)
+
+const p_base = or(parse_number, parse_paren_expr)
+
+// Parser tree
+const parse_times_expr = bind
+	( p_base
+	, left => bind
+		( parse_str('*')
+		, sign => bind
+			( p_times
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+
+const p_times = or(parse_times_expr, p_base)
+
+// Parser tree
+const parse_plus_expr = bind
+	( p_times
+	, left => bind
+		( parse_str('+')
+		, sign => bind
+			( p_plus
+			, right => retoorn([sign, left, right])
+			)
+		)
+	)
+
+const p_plus = or(parse_plus_expr, p_times)
+
+const evaluate = tree => {
+	if (typeof(tree) === 'number') return tree
+
+	const [operator, left, right] = tree
+
+	const x = evaluate(left)
+	const y = evaluate(right)
+
+	if (operator === '+') return x + y
+	if (operator === '-') return x - y
+	if (operator === '*') return x * y
+	if (operator === '/') return x / y
+}
+
+
+console.log(JSON.stringify(p_plus('112*3+(24*2+3)+4')))
+
+
+// ["+",1,["-",2,["-",["*",3,["+",1,["-",0,["+",1,2]]]],["*",3,9]]]]
+console.log(p_plus('1+2-3*((1)+0-(1+2))-3*9'))
+
+console.log(parse_plus_expr('1-2-3+4')) // { value: ['-', 1, ['-', 2, ['+', 3, 4]]], rest: '' }
+
+console.log(parse_plus_expr('1+2+3+4+5'))    // { value: ['+', 1, 1], rest: '' }
+console.log(parse_plus_expr('1+2abc')) // { value: ['+', 1, 2], rest: 'abc' }
+console.log(parse_plus_expr('1+'))     // { failed: true }
+
+console.log(JSON.stringify(parse_plus_expr('1+2+3+4+5')))</code></pre></div>
+<div id='slide-74' class=slide><p></p></div>
+<div id='slide-75' class=slide><p></p></div></div><script src=script.js></script>
